@@ -1,0 +1,38 @@
+# Source files
+src/
+tests/
+*.test.ts
+*.spec.ts
+
+# Development files
+.kiro/
+vitest.config.ts
+tsconfig.json
+.env*
+credentials.txt
+credentials-exp.txt
+
+# Logs and temp files
+logs/
+*.log
+.spotify-tidal-progress.json
+
+# Development dependencies
+node_modules/
+.npm/
+.nyc_output/
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore

@@ -10,3 +10,4 @@ export {
   CONFIGURACION_REINTENTO_PREDETERMINADA 
 } from './ErrorHandler.js';
 export { ProgressRecovery, ProgressState, RecoveryOptions } from './ProgressRecovery.js';
+export { ConfigPaths } from './ConfigPaths.js';

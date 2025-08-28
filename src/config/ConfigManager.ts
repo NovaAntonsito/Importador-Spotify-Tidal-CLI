@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { Credentials } from '../models/Auth.js';
+import { ConfigPaths } from '../utils/ConfigPaths.js';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -9,29 +10,33 @@ export interface ValidationResult {
 
 export class ConfigManager {
   /**
-   * Creates a credentials template file with the required format
+   * Obtiene la ruta por defecto del archivo de credenciales
    */
-  async createCredentialsTemplate(filePath: string = './credentials.txt'): Promise<void> {
-    const template = `TIDAL_CLIENT_ID = 
-TIDAL_CLIENT_SECRET = 
+  getDefaultCredentialsPath(): string {
+    return ConfigPaths.getCredentialsPath();
+  }
 
-------------------------------
-
-SPOTIFY_CLIENT_ID = 
-SPOTIFY_CLIENT_SECRET = `;
-
+  /**
+   * Crea el archivo de credenciales template en AppData
+   */
+  async createCredentialsTemplate(filePath?: string): Promise<string> {
+    const credentialsPath = filePath || this.getDefaultCredentialsPath();
+    
     try {
-      await fs.writeFile(filePath, template, 'utf8');
+      ConfigPaths.ensureConfigDirs();
+      const createdPath = ConfigPaths.createCredentialsTemplate();
+      return createdPath;
     } catch (error) {
-      throw new Error(`Failed to create credentials template: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Error al crear el template de credenciales: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 
 
-  checkCredentialsExist(filePath: string = './credentials.txt'): boolean {
+  checkCredentialsExist(filePath?: string): boolean {
+    const credentialsPath = filePath || this.getDefaultCredentialsPath();
     try {
       const fs = require('fs');
-      fs.accessSync(filePath, fs.constants.F_OK);
+      fs.accessSync(credentialsPath, fs.constants.F_OK);
       return true;
     } catch (error) {
       return false;
@@ -39,9 +44,10 @@ SPOTIFY_CLIENT_SECRET = `;
   }
 
 
-  async checkCredentialsExistAsync(filePath: string = './credentials.txt'): Promise<boolean> {
+  async checkCredentialsExistAsync(filePath?: string): Promise<boolean> {
+    const credentialsPath = filePath || this.getDefaultCredentialsPath();
     try {
-      await fs.access(filePath, fs.constants.F_OK);
+      await fs.access(credentialsPath, fs.constants.F_OK);
       return true;
     } catch {
       return false;

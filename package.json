@@ -1,9 +1,19 @@
 {
-  "name": "cli-importer-spotify-tidal",
+  "name": "spotify-tidal-importer",
   "version": "1.0.0",
   "description": "Es una herramienta CLI para la importacion de playlist de spotify a tidal",
   "main": "dist/cli/index.js",
   "type": "module",
+  "bin": {
+    "spotify-tidal-importer": "./dist/cli/index.js",
+    "sti": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist/**/*",
+    "scripts/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli/index.ts",
@@ -11,7 +21,9 @@
     "type-check": "tsc --noEmit",
     "test": "vitest --run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
     "cli",
@@ -19,7 +31,10 @@
     "tidal",
     "playlist",
     "music",
-    "importer"
+    "importer",
+    "npx",
+    "migration",
+    "streaming"
   ],
   "dependencies": {
     "axios": "^1.11.0",

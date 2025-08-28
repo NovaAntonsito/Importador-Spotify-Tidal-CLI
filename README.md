@@ -34,6 +34,28 @@ Una herramienta CLI para importar playlists de Spotify a Tidal de manera fácil 
 
 ## 📦 Instalación
 
+### Opción 1: Usar con npx (Recomendado)
+
+La forma más fácil de usar la herramienta es con npx, sin necesidad de instalar nada:
+
+```bash
+npx spotify-tidal-importer
+```
+
+**🎉 ¡Configuración automática!** La primera vez que ejecutés el comando, la aplicación:
+- Creará automáticamente el archivo de credenciales en tu sistema
+- Te mostrará exactamente dónde está ubicado
+- Te guiará paso a paso para completar la configuración
+
+### Opción 2: Instalación global
+
+```bash
+npm install -g spotify-tidal-importer
+spotify-tidal-importer
+```
+
+### Opción 3: Desarrollo local
+
 1. **Clonar el repositorio:**
    ```bash
    git clone <url-del-repositorio>
@@ -52,7 +74,23 @@ Una herramienta CLI para importar playlists de Spotify a Tidal de manera fácil 
 
 ## ⚙️ Configuración
 
-### 1. Configurar Aplicación de Spotify
+### 🚀 Configuración Rápida
+
+1. **Ejecutá la aplicación por primera vez:**
+   ```bash
+   npx spotify-tidal-importer
+   ```
+
+2. **La aplicación creará automáticamente el archivo de credenciales en:**
+   - **Windows:** `%APPDATA%\spotify-tidal-importer\credentials.txt`
+   - **macOS:** `~/Library/Application Support/spotify-tidal-importer/credentials.txt`
+   - **Linux:** `~/.config/spotify-tidal-importer/credentials.txt`
+
+3. **Seguí las instrucciones en pantalla** para obtener y configurar tus credenciales de API.
+
+### 📋 Configuración Detallada de APIs
+
+#### 1. Configurar Aplicación de Spotify
 
 1. **Ir al Dashboard de Spotify:**
    - Visitá [Spotify for Developers](https://developer.spotify.com/dashboard)
@@ -89,26 +127,28 @@ Una herramienta CLI para importar playlists de Spotify a Tidal de manera fácil 
    - Copiá el **Client ID** y **Client Secret** de tu aplicación
    - ⚠️ **Importante:** Asegurate de que la URI de redirección `http://127.0.0.1:8888/callback` esté configurada
 
-### 3. Configurar Credenciales
+#### 3. Completar el Archivo de Credenciales
 
-1. **Crear archivo de credenciales:**
-   - En la raíz del proyecto, creá o editá el archivo `credentials.txt`
-   - Usá el siguiente formato:
+Una vez que tengas las credenciales de ambas APIs:
+
+1. **Abrir el archivo de credenciales** que se creó automáticamente en tu sistema
+2. **Reemplazar los valores placeholder** con tus credenciales reales:
 
    ```
-   TIDAL_CLIENT_ID = tu_tidal_client_id_aqui
-   TIDAL_CLIENT_SECRET = tu_tidal_client_secret_aqui
+   # === TIDAL API ===
+   TIDAL_CLIENT_ID=tu_client_id_real_de_tidal
+   TIDAL_CLIENT_SECRET=tu_client_secret_real_de_tidal
 
-   ------------------------------
-
-   SPOTIFY_CLIENT_ID = tu_spotify_client_id_aqui
-   SPOTIFY_CLIENT_SECRET = tu_spotify_client_secret_aqui
+   # === SPOTIFY API ===
+   SPOTIFY_CLIENT_ID=tu_client_id_real_de_spotify
+   SPOTIFY_CLIENT_SECRET=tu_client_secret_real_de_spotify
    ```
 
-2. **Ejemplo de archivo credentials.txt:**
+3. **Ejemplo completo:**
    ```
-   TIDAL_CLIENT_ID = abc123def456
-   TIDAL_CLIENT_SECRET = xyz789uvw012345678901234567890abcdef
+   # === TIDAL API ===
+   TIDAL_CLIENT_ID=abc123def456
+   TIDAL_CLIENT_SECRET=xyz789uvw012345678901234567890abcdef
 
    ------------------------------
 
@@ -124,6 +164,34 @@ Una herramienta CLI para importar playlists de Spotify a Tidal de manera fácil 
 ## 🚀 Uso
 
 ### Ejecutar la aplicación
+
+```bash
+# Con npx (recomendado)
+npx spotify-tidal-importer
+
+# Si está instalado globalmente
+spotify-tidal-importer
+
+# Comando corto (alias)
+npx sti
+
+# Con opciones
+npx spotify-tidal-importer --help
+npx spotify-tidal-importer --mode interactive
+npx spotify-tidal-importer --credentials ./mis-credenciales.txt
+```
+
+### Opciones de línea de comandos
+
+```bash
+-m, --mode <modo>           Modo: "auto" o "interactive" (por defecto: interactive)
+-c, --credentials <ruta>    Ruta al archivo de credenciales (por defecto: ./credentials.txt)
+-r, --max-retries <num>     Número máximo de reintentos (por defecto: 3)
+-b, --batch-size <num>      Tamaño del lote para procesamiento (por defecto: 10)
+-h, --help                  Mostrar ayuda
+```
+
+### Para desarrollo local
 
 ```bash
 # Modo desarrollo (recomendado para testing)
@@ -244,6 +312,20 @@ npm run test:watch
 
 # Compilar y ejecutar
 npm run build && npm start
+
+# Preparar para publicación
+npm run prepublishOnly
+```
+
+### Publicar en npm
+
+```bash
+# Compilar y publicar
+npm run build
+npm publish
+
+# Publicar versión beta
+npm publish --tag beta
 ```
 
 ### Contribuir

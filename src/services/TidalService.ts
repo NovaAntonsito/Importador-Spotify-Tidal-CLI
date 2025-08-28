@@ -45,7 +45,7 @@ export class TidalService {
   /**
    * Buscar tracks en Tidal usando el endpoint correcto - que cagada que sea tan complicado
    */
-  async searchTrack(artist: string, title: string, album?: string): Promise<any> {
+  async searchTrack(artist: string, title: string, album?: string, logContext?: { spotifyId: string; context: 'import' | 'sync' }): Promise<any> {
     const query = this.buildSearchQuery(artist, title, album);
 
     return this.manejadorErrores.ejecutarConReintento(async () => {
@@ -54,8 +54,9 @@ export class TidalService {
       const userInfo = await this.getUserInfo();
 
       // Usar el endpoint correcto que encontramos después de mucho probar
-      const encodedQuery = encodeURIComponent(query);
+      const encodedQuery = encodeURIComponent(query).replace(/%2527/g, '%27');
       const searchEndpoint = `/searchResults/${encodedQuery}/relationships/tracks`;
+
 
       const response = await this.client.get(searchEndpoint, {
         params: {
@@ -75,6 +76,27 @@ export class TidalService {
           console.log(`   🎵 ${verifiedTrack.title}`);
           console.log(`   👨‍🎤 ${verifiedTrack.artists.map(a => a.name).join(', ')}`);
           console.log(`   💿 ${verifiedTrack.album.title}`);
+        }
+      } else {
+        // Si no se encontraron resultados y tenemos contexto de logging, registrar
+        if (logContext) {
+          // Usar la misma URL que se envió realmente a Tidal
+          const searchUrl = `${this.baseURL}${searchEndpoint}`;
+          await ErrorLogger.logTrackNotFound(
+            {
+              title: title,
+              artist: artist,
+              album: album || 'Unknown Album',
+              spotifyId: logContext.spotifyId
+            },
+            [{
+              query: query,
+              url: searchUrl,
+              description: `Búsqueda directa: "${artist}" - "${title}"${album ? ` del álbum "${album}"` : ''}`
+            }],
+            logContext.context,
+            'No se encontraron resultados en Tidal'
+          );
         }
       }
 
@@ -373,19 +395,22 @@ export class TidalService {
 
   /**
    * Construir query string para la API de Tidal
+   * NOTA: No incluimos el álbum en la búsqueda para evitar interferencias 
    */
   private buildSearchQuery(artist: string, title: string, album?: string): string {
+    // Solo usar artista y título, NO el álbum
     let query = `${artist} ${title}`;
 
-    if (album) {
-      query += ` ${album}`;
-    }
-
-    // Limpiar el query - remover caracteres especiales que pueden joder
-    return query
-      .replace(/[^\w\s-]/g, ' ') // Reemplazar caracteres especiales con espacios
+    // Limpiar caracteres especiales pero preservar acentos, ñ, apostrofes, guiones, puntos, signos de interrogación, más, y diéresis
+    const cleanedQuery = query
+      .replace(/[^\w\s\-'.?+áéíóúüñöÁÉÍÓÚÜÑÖ]/g, ' ') // Preservar acentos, ñ, ö, apostrofes, guiones, puntos, ?, +
       .replace(/\s+/g, ' ') // Reemplazar múltiples espacios con un solo espacio
       .trim();
+
+    // Forzar codificación del apostrofe ANTES de encodeURIComponent para evitar problemas
+    const apostropheFixed = cleanedQuery.replace(/'/g, '%27');
+    
+    return apostropheFixed;
   }
 
   /**

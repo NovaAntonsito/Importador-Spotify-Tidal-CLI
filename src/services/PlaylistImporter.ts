@@ -51,8 +51,13 @@ export class PlaylistImporter {
             console.log(chalk.blue(`${processed}/${tracks.length}. Buscando: "${track.title}" por ${artistNames}`));
 
             try {
-                // Search for the track
-                const searchResults = await this.tidalService.searchTrack(artistNames, track.title);
+                // Search for the track (sin álbum para evitar interferencias)
+                const searchResults = await this.tidalService.searchTrack(
+                    artistNames, 
+                    track.title, 
+                    undefined, // NO pasar álbum
+                    { spotifyId: track.id, context: 'import' }
+                );
 
                 // Check if we found any tracks
                 if (searchResults.data && Array.isArray(searchResults.data) && searchResults.data.length > 0) {

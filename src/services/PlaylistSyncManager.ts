@@ -216,8 +216,13 @@ export class PlaylistSyncManager {
         const artistNames = track.artists.map(artist => artist.name).join(', ');
 
         try {
-          // Search for the track
-          const searchResults = await this.tidalService.searchTrack(artistNames, track.title);
+          // Search for the track (sin álbum para evitar interferencias)
+          const searchResults = await this.tidalService.searchTrack(
+            artistNames, 
+            track.title, 
+            undefined, // NO pasar álbum
+            { spotifyId: track.id, context: 'sync' }
+          );
 
           // Check if we found any tracks
           if (searchResults.data && Array.isArray(searchResults.data) && searchResults.data.length > 0) {
@@ -346,7 +351,7 @@ export class PlaylistSyncManager {
 
       const batchPromises = batch.map(async (track) => {
         try {
-          const matchResult = await this.songMatcher.findBestMatch(track);
+          const matchResult = await this.songMatcher.findBestMatch(track, { context: 'sync' });
 
           if (matchResult.tidalTrack && matchResult.confidence > 0.7) {
             matchedTrackIds.push(matchResult.tidalTrack.id.toString());

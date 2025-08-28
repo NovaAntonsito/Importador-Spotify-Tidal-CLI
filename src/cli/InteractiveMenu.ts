@@ -8,6 +8,7 @@ import { SongMatcher } from '../matching/SongMatcher.js';
 import { Playlist } from '../models/Playlist.js';
 import { TidalPlaylist } from '../models/TidalTypes.js';
 import { createSpinner } from 'nanospinner';
+import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export interface MenuOptions {
     spotifyService: SpotifyService;
@@ -72,6 +73,10 @@ export class InteractiveMenu {
                             value: 'view-logs'
                         },
                         {
+                            name: '🎵 Ver canciones no encontradas',
+                            value: 'view-not-found'
+                        },
+                        {
                             name: '❌ Salir',
                             value: 'exit'
                         }
@@ -100,6 +105,11 @@ export class InteractiveMenu {
                     break;
                 case 'view-logs':
                     await this.showErrorLogs();
+                    await this.pressEnterToContinue();
+                    this.clearTerminal();
+                    break;
+                case 'view-not-found':
+                    await this.showTracksNotFound();
                     await this.pressEnterToContinue();
                     this.clearTerminal();
                     break;
@@ -522,6 +532,71 @@ export class InteractiveMenu {
     private showWelcome(): void {
         console.log(chalk.bold.blue('\n🎵 Importador de Spotify a Tidal by NovaAntonsito'));
         console.log(chalk.gray('═'.repeat(40)));
+    }
+
+    /**
+     * Show tracks not found logs
+     */
+    private async showTracksNotFound(): Promise<void> {
+        console.log(chalk.bold.yellow('\n🎵 Canciones No Encontradas'));
+        console.log(chalk.gray('─'.repeat(35)));
+
+        try {
+            const logs = await ErrorLogger.getTrackNotFoundLogs(20);
+
+            if (logs.length === 0) {
+                console.log(chalk.green('✅ No hay canciones no encontradas registradas.'));
+                return;
+            }
+
+            console.log(`\n📊 Mostrando ${logs.length} canciones no encontradas más recientes:\n`);
+
+            logs.forEach((log, index) => {
+                const contextIcon = log.context === 'import' ? '📥' : '🔄';
+                
+                console.log(chalk.yellow(`${index + 1}. ${contextIcon} "${log.track.title}" por ${log.track.artist}`));
+                console.log(chalk.gray(`   💿 Álbum: ${log.track.album}`));
+                console.log(chalk.gray(`   🆔 Spotify ID: ${log.track.spotifyId}`));
+                console.log(chalk.gray(`   🕒 ${new Date(log.timestamp).toLocaleString()}`));
+                console.log(chalk.gray(`   📋 Contexto: ${log.context === 'import' ? 'Importación' : 'Sincronización'}`));
+                
+                if (log.searchAttempts.length > 0) {
+                    console.log(chalk.blue(`   🔍 Búsquedas realizadas:`));
+                    log.searchAttempts.slice(0, 3).forEach((attempt, i) => {
+                        console.log(chalk.gray(`     ${i + 1}. ${attempt.description}`));
+                        console.log(chalk.gray(`        Query: "${attempt.query}"`));
+                        console.log(chalk.gray(`        URL: ${attempt.url}`));
+                    });
+                    if (log.searchAttempts.length > 3) {
+                        console.log(chalk.gray(`     ... y ${log.searchAttempts.length - 3} búsquedas más`));
+                    }
+                }
+                
+                if (log.errorMessage) {
+                    console.log(chalk.red(`   ❌ Error: ${log.errorMessage}`));
+                }
+                
+                console.log('');
+            });
+
+            // Ask if user wants to clear logs
+            const { clearLogs } = await inquirer.prompt([
+                {
+                    type: 'confirm',
+                    name: 'clearLogs',
+                    message: '¿Quieres limpiar los logs de canciones no encontradas?',
+                    default: false
+                }
+            ]);
+
+            if (clearLogs) {
+                await ErrorLogger.clearTrackNotFoundLogs();
+                console.log(chalk.green('✅ Logs de canciones no encontradas limpiados.'));
+            }
+
+        } catch (error) {
+            console.error(chalk.red('❌ Error al cargar logs de canciones no encontradas:'), error instanceof Error ? error.message : 'Error desconocido');
+        }
     }
 
     /**

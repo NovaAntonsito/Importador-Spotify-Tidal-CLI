@@ -1,11 +1,16 @@
 import { Track } from '../models/Track.js';
 import { TidalService } from '../services/TidalService.js';
 import { TidalTrack } from '../models/TidalTypes.js';
+import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export interface MatchResult {
   tidalTrack: TidalTrack | null;
   confidence: number;
   searchAttempts: string[];
+}
+
+export interface SearchContext {
+  context: 'import' | 'sync';
 }
 
 export class SongMatcher {
@@ -17,21 +22,33 @@ export class SongMatcher {
   /**
    * Encontrar la mejor coincidencia para una canción de Spotify en Tidal usando múltiples estrategias de búsqueda
    */
-  async findBestMatch(spotifyTrack: Track): Promise<MatchResult> {
+  async findBestMatch(spotifyTrack: Track, searchContext?: SearchContext): Promise<MatchResult> {
     const searchQueries = this.generateSearchQueries(spotifyTrack);
     const searchAttempts: string[] = [];
+    const searchAttemptsDetailed: { query: string; url: string; description: string }[] = [];
     let bestMatch: TidalTrack | null = null;
     let bestConfidence = 0;
+    let lastError: string | undefined;
 
     // Intentar cada estrategia de búsqueda en orden de preferencia
     for (const query of searchQueries) {
       try {
         searchAttempts.push(query.description);
 
+        // Construir URL de búsqueda para logging (solo artista y título)
+        const searchUrl = this.buildSearchUrl(query.artist, query.title);
+        const searchQuery = this.buildSearchQuery(query.artist, query.title); // No incluir álbum en query
+        
+        searchAttemptsDetailed.push({
+          query: searchQuery,
+          url: searchUrl,
+          description: query.description
+        });
+
         const searchResult = await this.tidalService.searchTrack(
           query.artist,
-          query.title,
-          query.album
+          query.title
+          // NO pasar álbum para evitar interferencias en la búsqueda
         );
 
         if (searchResult.tracks.items.length === 0) {
@@ -59,9 +76,25 @@ export class SongMatcher {
         }
 
       } catch (error) {
+        lastError = error instanceof Error ? error.message : 'Error desconocido en búsqueda';
         console.warn(`La búsqueda falló para la consulta "${query.description}":`, error);
         // Continuar con la siguiente estrategia de búsqueda
       }
+    }
+
+    // Si no se encontró la canción, loggear los detalles de búsqueda
+    if (!bestMatch && searchContext) {
+      await ErrorLogger.logTrackNotFound(
+        {
+          title: spotifyTrack.title,
+          artist: spotifyTrack.artists[0]?.name || 'Unknown Artist',
+          album: spotifyTrack.album.name,
+          spotifyId: spotifyTrack.id
+        },
+        searchAttemptsDetailed,
+        searchContext.context,
+        lastError
+      );
     }
 
     return {
@@ -313,5 +346,32 @@ export class SongMatcher {
     }
 
     return matrix[str2.length][str1.length];
+  }
+
+  /**
+   * Construir query de búsqueda como lo hace TidalService
+   * NOTA: No incluimos el álbum en la búsqueda para evitar interferencias
+   * Preservamos apostrofes y caracteres especiales importantes
+   */
+  private buildSearchQuery(artist: string, title: string, album?: string): string {
+    // Solo usar artista y título, NO el álbum
+    let query = `${artist} ${title}`;
+    
+    // Limpiar el query pero preservar apostrofes y caracteres importantes
+    return query
+      .replace(/[^\w\s\-']/g, ' ') // Preservar apostrofes (') y guiones (-), remover otros especiales
+      .replace(/\s+/g, ' ') // Reemplazar múltiples espacios con un solo espacio
+      .trim();
+  }
+
+  /**
+   * Construir URL de búsqueda para logging
+   * NOTA: Solo usa artista y título, NO el álbum
+   */
+  private buildSearchUrl(artist: string, title: string): string {
+    const baseUrl = 'https://openapi.tidal.com/v2/searchResults';
+    const query = this.buildSearchQuery(artist, title); // Solo artista y título
+    const encodedQuery = encodeURIComponent(query);
+    return `${baseUrl}/${encodedQuery}/relationships/tracks`;
   }
 }

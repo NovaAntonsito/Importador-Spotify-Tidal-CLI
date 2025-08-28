@@ -1,0 +1,6 @@
+node_modules
+.kiro
+credentials.txt
+.spotify-tidal-progress.json
+dist
+logs

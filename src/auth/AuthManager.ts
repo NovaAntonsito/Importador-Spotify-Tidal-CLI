@@ -500,7 +500,6 @@ export class AuthManager {
     const now = new Date();
     const bufferTime = 5 * 60 * 1000; // 5 minutos de buffer
 
-    // Verificar si los tokens necesitan refrescarse (expirados o por expirar pronto)
     if (!this.tokens.expiresAt || (this.tokens.expiresAt.getTime() - now.getTime()) < bufferTime) {
       throw new Error('El refresco de token requiere re-autenticación. Por favor autenticá de nuevo.');
     }

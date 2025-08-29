@@ -43,65 +43,140 @@ export class TidalService {
 
 
   /**
-   * Buscar tracks en Tidal usando el endpoint correcto - que cagada que sea tan complicado
-   */
+   * Buscar tracks en Tidal con reintentos inteligentes
   async searchTrack(artist: string, title: string, album?: string, logContext?: { spotifyId: string; context: 'import' | 'sync' }): Promise<any> {
-    const query = this.buildSearchQuery(artist, title, album);
-
     return this.manejadorErrores.ejecutarConReintento(async () => {
+      const searchAttempts: Array<{ query: string; url: string; description: string }> = [];
 
-      // Conseguir info del usuario para el country code
-      const userInfo = await this.getUserInfo();
+     
+      const originalResult = await this.performSingleSearch(artist, title, album, searchAttempts, 'original');
+      if (originalResult.found) {
+        return originalResult.data;
+      }
 
-      // Usar el endpoint correcto que encontramos después de mucho probar
-      const encodedQuery = encodeURIComponent(query).replace(/%2527/g, '%27');
-      const searchEndpoint = `/searchResults/${encodedQuery}/relationships/tracks`;
+      if (this.containsNumbers(artist, title)) {
+        const cleanArtist = this.removeNumbers(artist);
+        const cleanTitle = this.removeNumbers(title);
 
-
-      const response = await this.client.get(searchEndpoint, {
-        params: {
-          countryCode: userInfo.countryCode,
-          explicitFilter: 'exclude',
-          include: 'tracks'
-        }
-      });
-
-      // Extraer el primer track ID y verificarlo - medio mierdoso pero funciona
-      if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-        const firstTrackId = response.data.data[0].id;
-        const verifiedTrack = await this.verifyTrack(firstTrackId);
-
-        if (verifiedTrack) {
-          console.log(`   🆔 ${verifiedTrack.id}`);
-          console.log(`   🎵 ${verifiedTrack.title}`);
-          console.log(`   👨‍🎤 ${verifiedTrack.artists.map(a => a.name).join(', ')}`);
-          console.log(`   💿 ${verifiedTrack.album.title}`);
-        }
-      } else {
-        // Si no se encontraron resultados y tenemos contexto de logging, registrar
-        if (logContext) {
-          // Usar la misma URL que se envió realmente a Tidal
-          const searchUrl = `${this.baseURL}${searchEndpoint}`;
-          await ErrorLogger.logTrackNotFound(
-            {
-              title: title,
-              artist: artist,
-              album: album || 'Unknown Album',
-              spotifyId: logContext.spotifyId
-            },
-            [{
-              query: query,
-              url: searchUrl,
-              description: `Búsqueda directa: "${artist}" - "${title}"${album ? ` del álbum "${album}"` : ''}`
-            }],
-            logContext.context,
-            'No se encontraron resultados en Tidal'
-          );
+        const cleanResult = await this.performSingleSearch(cleanArtist, cleanTitle, album, searchAttempts, 'sin números');
+        if (cleanResult.found) {
+          return cleanResult.data;
         }
       }
 
-      return response.data;
+      // Si llegamos aquí, no se encontró nada
+      if (logContext) {
+        await ErrorLogger.logTrackNotFound(
+          {
+            title: title,
+            artist: artist,
+            album: album || 'Unknown Album',
+            spotifyId: logContext.spotifyId
+          },
+          searchAttempts,
+          logContext.context,
+          'No se encontraron resultados en Tidal después de múltiples intentos'
+        );
+      }
+
+      return { data: [] }; // Retornar estructura vacía consistente
     }, 'tidal', 'searchTrack');
+  }
+
+  /**
+   * Realizar una búsqueda individual y registrar el intento
+   */
+  private async performSingleSearch(
+    artist: string,
+    title: string,
+    album: string | undefined,
+    searchAttempts: Array<{ query: string; url: string; description: string }>,
+    attemptType: string
+  ): Promise<{ found: boolean; data?: any }> {
+    const query = this.buildSearchQuery(artist, title, album);
+    const userInfo = await this.getUserInfo();
+    const encodedQuery = encodeURIComponent(query).replace(/%2527/g, '%27');
+    const searchEndpoint = `/searchResults/${encodedQuery}/relationships/tracks`;
+    const searchUrl = `${this.baseURL}${searchEndpoint}`;
+
+    // Registrar el intento
+    searchAttempts.push({
+      query: query,
+      url: searchUrl,
+      description: `Búsqueda ${attemptType}: "${artist}" - "${title}"${album ? ` del álbum "${album}"` : ''}`
+    });
+
+    const response = await this.client.get(searchEndpoint, {
+      params: {
+        countryCode: userInfo.countryCode,
+        explicitFilter: 'exclude',
+        include: 'tracks'
+      }
+    });
+
+    // Verificar si encontramos resultados
+    if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      const firstTrackId = response.data.data[0].id;
+      const verifiedTrack = await this.verifyTrack(firstTrackId);
+
+      if (verifiedTrack) {
+        console.log(`   🆔 ${verifiedTrack.id}`);
+        console.log(`   🎵 ${verifiedTrack.title}`);
+        console.log(`   👨‍🎤 ${verifiedTrack.artists.map(a => a.name).join(', ')}`);
+        console.log(`   💿 ${verifiedTrack.album.title}`);
+        if (attemptType !== 'original') {
+          console.log(`   🔄 Encontrada con búsqueda ${attemptType}`);
+        }
+        return { found: true, data: response.data };
+      }
+    }
+
+    return { found: false };
+  }
+
+  /**
+   * Verificar si el texto contiene números (años, remasters, etc.)
+   */
+  private containsNumbers(artist: string, title: string): boolean {
+    const combinedText = `${artist} ${title}`;
+    // Buscar patrones comunes: años, números ordinales, remasters, etc.
+    const numberPatterns = [
+      /\b(19|20)\d{2}\b/, // Años 1900-2099
+      /\b\d+(st|nd|rd|th)\b/i, // Números ordinales (1st, 2nd, 3rd, 21st, etc.)
+      /\b\d+\s*(remaster|remix|version|edit|mix)\b/i, // Números seguidos de palabras clave
+      /\b(remaster|remix|version|edit|mix)\s*\d+\b/i, // Palabras clave seguidas de números
+      /\b(remastered|remixed)\s*(19|20)\d{2}\b/i, // Remastered/Remixed seguido de año
+      /\b\d{4}\s*(remaster|remix|version|edit|mix)\b/i // Años específicos con palabras clave
+    ];
+
+    return numberPatterns.some(pattern => pattern.test(combinedText));
+  }
+
+  /**
+   * Remover números y patrones relacionados con años, remasters, etc.
+   */
+  private removeNumbers(text: string): string {
+    return text
+      // Remover números ordinales (1st, 2nd, 21st, etc.)
+      .replace(/\b\d+(st|nd|rd|th)\b/gi, '')
+      // Remover años y patrones de remaster
+      .replace(/\b(19|20)\d{2}\s*(remaster|remix|version|edit|mix)\b/gi, '')
+      .replace(/\b(remaster|remix|version|edit|mix)\s*(19|20)\d{2}\b/gi, '')
+      .replace(/\b(remastered|remixed)\s*(19|20)\d{2}\b/gi, '')
+      .replace(/\b(remaster|remix|version|edit|mix)\s*\d+\b/gi, '')
+      .replace(/\b\d+\s*(remaster|remix|version|edit|mix)\b/gi, '')
+      // Remover años sueltos
+      .replace(/\b(19|20)\d{2}\b/g, '')
+      // Remover palabras clave sueltas que quedaron
+      .replace(/\b(remaster|remix|version|edit|mix|remastered|remixed)\b/gi, '')
+      // Remover guiones y paréntesis que quedan vacíos o al final
+      .replace(/\s*-\s*$/g, '')
+      .replace(/\s*-\s*-\s*/g, ' - ')
+      .replace(/\(\s*\)/g, '')
+      .replace(/\[\s*\]/g, '')
+      // Limpiar espacios múltiples
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /**
@@ -409,7 +484,7 @@ export class TidalService {
 
     // Forzar codificación del apostrofe ANTES de encodeURIComponent para evitar problemas
     const apostropheFixed = cleanedQuery.replace(/'/g, '%27');
-    
+
     return apostropheFixed;
   }
 

@@ -42,8 +42,7 @@ export class TidalService {
   }
 
 
-  /**
-   * Buscar tracks en Tidal con reintentos inteligentes
+  //Busqueda por tidal 
   async searchTrack(artist: string, title: string, album?: string, logContext?: { spotifyId: string; context: 'import' | 'sync' }): Promise<any> {
     return this.manejadorErrores.ejecutarConReintento(async () => {
       const searchAttempts: Array<{ query: string; url: string; description: string }> = [];

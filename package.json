@@ -1,6 +1,6 @@
 {
   "name": "spotify-tidal-importer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Es una herramienta CLI para la importacion de playlist de spotify a tidal",
   "main": "dist/cli/index.js",
   "type": "module",

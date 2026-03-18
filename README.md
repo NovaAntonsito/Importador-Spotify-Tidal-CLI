@@ -1,3 +1,9 @@
+# 🚨 Estado del Repositorio
+
+** ⚠️ Este repositorio está archivado.
+Debido a las restricciones cada vez más limitantes y desfavorables de las políticas de Spotify para desarrolladores, el mantenimiento y la continuidad de este proyecto dejaron de ser viables.
+Por ese motivo, el repositorio queda congelado y sin planes de actualización futura. ** 
+
 # 🎵 CLI Importer Spotify → Tidal
 
 Una herramienta CLI para importar playlists de Spotify a Tidal de manera fácil y rápida.
